@@ -1,0 +1,196 @@
+*{
+    margin: 0;
+    padding: 0;
+}   
+
+/* 设置滚动条的样式 */
+::-webkit-scrollbar {
+    width:6px;
+}
+/* 滚动槽 */
+::-webkit-scrollbar-track {
+    border-radius:10px;
+    box-shadow:inset 0 0 6px rgba(0,0,0,0.3);
+    -webkit-box-shadow:inset 0 0 6px rgba(0,0,0,0.3);
+    
+}
+/* 滚动条滑块 */
+::-webkit-scrollbar-thumb {
+    border-radius:10px;
+    background:rgba(0,0,0,0.1);
+    box-shadow:inset 0 0 6px rgba(0,0,0,0.5);
+    -webkit-box-shadow:inset 0 0 6px rgba(0,0,0,0.5);
+}
+
+.global_con {
+    width: 1280px;
+    height: 700px;
+    overflow: hidden;
+}
+
+#left-area
+{
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background-color: rgb(255, 255, 255);
+    border-radius: 5px;
+    border: 0px solid;
+    outline: solid 1px;
+    padding: 5px;
+    width: 310px;
+    height: 600px;
+}
+
+#left-titles
+{
+    display: flex;
+    flex-grow: 0;
+    justify-content: center;
+    top: 10px;
+    left: 10px;
+    width: 100%;
+}
+
+#left-titles>button
+{
+    margin: 0 10px;
+    width: 70px;
+    background-color: rgb(218, 217, 216);
+    border: 1px solid black;
+    border-radius: 3px;
+}
+
+.left-title-bt-selected
+{
+    background: linear-gradient(270deg, #045D82 0%, #1697C9 100%);
+}
+
+.left-spliter
+{
+    height: 1px;
+    margin: 10px 0;
+    background-color: black;
+    flex-shrink: 0
+}
+
+#left-contents
+{
+    flex-grow: 1;
+    overflow: auto;
+    overflow-x: hidden;
+}
+
+.ui-contents 
+{
+    background-color: rgb(255, 255, 255);
+    margin-top: 10px;
+    font-size: 12px;
+}
+
+.ui-content > *
+{
+    margin: 5px;
+    padding: 0;
+}
+
+.ui-content > button
+{
+    font-size: 12px;
+}
+
+.ui-headers
+{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    align-content: center;
+    justify-content: space-between;
+    margin: 0 5px;
+}
+
+.ui-header
+{
+    border-radius: 3px;
+    border-color: black;
+    outline: solid 1px;
+    cursor: pointer;
+    font-size: 12px;
+    margin: 0;
+    margin-top: 3px;
+    padding-left: 5px;
+    min-width: 90px;
+}
+
+.ui-header-active 
+{
+    background-color: rgb(40, 156, 172);
+}
+
+.ui-control
+{
+    display: flex;
+}
+
+
+.ui-control>span
+{
+    width: 30px;
+    max-width: 30px;
+    flex-shrink: 0;
+    overflow:hidden;
+    white-space:nowrap; 
+    text-overflow: ellipsis;
+}
+
+.ui-control-input>input
+{
+    flex-grow: 1;
+}
+
+.ui-control-range>input[type=range]
+{
+    flex-grow: 2;
+}
+.ui-control-range>input[type=text]
+{
+    width: 30px;
+    border-width: 1px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+.ui-control-range>button
+{
+    width: 16px;
+    height: 16px;
+    font-size: 14px;
+    line-height: 12px;
+    margin-left: 2px;
+}
+
+.ui-table
+{
+    border: 1px solid;
+}
+
+.tile-tip 
+{
+    position: absolute;
+    display: none;
+    left: 0;
+    top: 0;
+    width: 200;
+    height: 100;
+}
+
+.debug{
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    width: 800px;
+    height: 40px;
+
+    background-color: brown;
+}

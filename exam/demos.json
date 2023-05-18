@@ -1,0 +1,12 @@
+{
+    "demos":[
+        { "uri": "scene.js"},
+        { "uri": "layers.js"},
+        { "uri": "navigate.js"},
+        { "uri": "events.js"},
+        { "uri": "others.js"},
+        { "uri": "moveable.js"},
+        { "uri": "path-roam.js"},
+        { "uri": "models.js"}
+    ]
+}

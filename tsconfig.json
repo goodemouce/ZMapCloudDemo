@@ -1,0 +1,16 @@
+{
+    "compilerOptions": {
+        "allowJs": false,
+        "module": "ES6",
+        "target": "ESNext",
+        "sourceMap": true,
+        "inlineSourceMap":false,
+        "declaration":false,
+        "removeComments": false
+    },
+    "include": [
+        "./libs/czmap-s.d.ts",
+        "./types/**/*.ts",
+        "./**/*.ts"
+    ]
+}
