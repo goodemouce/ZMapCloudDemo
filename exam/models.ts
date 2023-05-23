@@ -37,4 +37,28 @@ namespace Models
             DGJLayer = undefined;
         }
     });
+
+
+    /// 巷道中心线坐标
+    let path:CZMAP.Point[];
+    fetch('data/layers/tunnel_line_01.json').then(e => e.json()).then(j => path = j);
+
+    const ent = app.map.view3d.czviewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(108,36,0),
+        point: {
+            pixelSize: 20
+        }
+    });
+
+    demo.addRange(0, 100, 0, v => {
+        const vnum = v.valueAsNumber / 100 * 1500;
+        /// 计算巷道点位和方向
+        const p = CZMAP.TunnelUtils.calcPosition(path, 1500, vnum);
+        if (DGJLayer)
+        {
+            DGJLayer.position = p.position;
+            DGJLayer.pose = p.pose;
+        }
+        ///ent.position = Cesium.Cartesian3.fromDegrees(... p.position) as any;
+    })
 }

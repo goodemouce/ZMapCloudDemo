@@ -8820,6 +8820,7 @@ declare namespace CZMAP {
         private _ready;
         private _layer?;
         private _bbox;
+        private _created;
         private _resolve;
         constructor(view: MapView, layer?: Layer);
         get ready(): Promise<void>;
@@ -8848,7 +8849,12 @@ declare namespace CZMAP {
         executeLayer(param: any): Promise<void>;
         /** 移除图层 */
         removeLayer(): Promise<void>;
-        _setBoundBox(min: Point, max: Point): void;
+        /**
+         * @inner
+         * @param min 最小值
+         * @param max 最大值
+         */
+        notify_setBoundBox(min: Point, max: Point): void;
     }
 }
 declare namespace CZMAP {
@@ -9702,6 +9708,9 @@ declare namespace CZMAP {
         'dynActor': DynActorRtcLayerDefine;
         'wrapped': WrappedRtcLayerDefine;
     }
+    interface PickResponse {
+        result: RtcMouseEventInfo;
+    }
     /** 图层信息通知 */
     export interface NotifyRtcLayerInfo {
         layerID: number;
@@ -9713,6 +9722,27 @@ declare namespace CZMAP {
     /** 表层（Overlay）信息通知 */
     export interface NotifyRtcOverlayInfo {
         ids: [id: number, x: number, y: number][];
+    }
+    export interface NotifyRtcPathRoam {
+        layerID: number;
+        action: string;
+        currentTime: number;
+        currentPosition: Point;
+    }
+    /** 鼠标事件信息 */
+    interface RtcMouseEventInfo {
+        /** 鼠标事件类型 */
+        type: MapEventsType;
+        /** 鼠标位置 */
+        pixel: [number, number];
+        /** 鼠标点击的三维坐标 */
+        position: Point;
+        /** 图层ID */
+        layerID: number;
+        /** 要素ID */
+        featureID: number;
+        /** 属性信息 */
+        info: Record<string, any>;
     }
     /** “飞行到”请求 */
     interface FlyToRtcRequest extends RtcRequest<never> {
@@ -9741,6 +9771,8 @@ declare namespace CZMAP {
         private _notifys;
         /** Overlay列表 */
         private _overlays;
+        /** 路径漫游列表 */
+        private _pathroams;
         /**
          * 构造 UnrealViewerAPI
          * @param uviewer 视图
@@ -9861,10 +9893,15 @@ declare namespace CZMAP {
          */
         switchVisible(layerID: number): void;
         resize(width: number, height: number): void;
+        pick(x: number, y: number): Promise<PickResponse>;
+        pickPosition(x: number, y: number): Promise<PickResponse>;
+        regPathRoam(id: number, roam: PathRoamUE): void;
+        unregPathRoam(id: number): void;
         private _notify_viewInfo;
         private _notify_mosue_event;
         private _notify_layerinfo;
         private _notify_overlayinfo;
+        private _notify_pathroam;
     }
     /**
      * 相对URL路径转绝对路径
@@ -11164,46 +11201,42 @@ declare namespace CZMAP {
      * 路径漫游对象
      */
     abstract class PathRoam extends BaseTool {
-        /**
-         * @protected
-         */
+        /**  */
         protected _play: boolean;
-        /**
-         * @protected
-         */
+        /** 视角锁定 */
         protected _lock: boolean;
-        /**
-         * @protected
-         */
+        /** 相机跟随 */
         protected _follow: boolean;
-        /**
-         * @protected
-         */
+        /** 第一人称 */
         protected _first: boolean;
-        /** @protected */
+        /** 模型始终向前 */
         protected _modelForward: boolean;
-        /**
-         * @protected
-         */
+        /** 方向 */
         protected _dir: number;
-        /**
-         * @protected
-         */
+        /** 速度 */
         protected _speed: number;
-        /** @private */
+        /** 循环模式 */
         protected _loop: PathRoamLoopType;
-        /**
-         *
-         */
+        /** 显示线条 */
         protected _showLine: boolean;
-        /**
-         * 线宽
-         */
+        /** 线宽 */
         protected _lineWidth: number;
-        /**
-         * 线颜色
-         */
+        /** 线颜色 */
         protected _lineColor: string;
+        /** 路径节点列表 */
+        protected _nodes: PathNode[];
+        /** 自定义视角偏移 */
+        protected _eye_offset: Point;
+        /** 路径的开始时刻（秒） */
+        protected _begin_seconds: number;
+        /** 路径的接受时刻（秒） */
+        protected _end_seconds: number;
+        /** 路径时长（秒） */
+        protected _total_seconds: number;
+        /** 路径漫游的当前时刻（秒） */
+        protected _current_seconds: number;
+        /** 当前位置 */
+        protected _current_position: Point;
         /**
          * @param view
          */
@@ -11213,11 +11246,11 @@ declare namespace CZMAP {
          * @param path 漫游路径
          * @param options 漫游参数
          */
-        abstract open(path: PathRomaData, options: PathRoamOptions): void;
+        open(path: PathRomaData, options: PathRoamOptions): void;
         /**
          * 关闭路径漫游
          */
-        abstract close(): void;
+        close(): void;
         /**
          * 开始漫游
          */
@@ -11238,98 +11271,47 @@ declare namespace CZMAP {
          * 后退
          */
         backward(): void;
-        /**
-         * 漫游总时间，毫秒数
-         */
-        abstract get totalTime(): number;
-        /**
-         * 当前时间，毫秒数
-         */
-        abstract get currentTime(): number;
-        /**
-         * 当前时间，毫秒数
-         */
-        abstract set currentTime(v: number);
-        /** 当前位置 */
-        abstract get currentPosition(): Point;
-        /**
-         * 获取漫游时的偏移
-         */
+        /** 漫游时的偏移 */
         get offset(): Point;
-        /**
-         * 设置漫游时的偏移
-         */
         set offset(v: Point);
-        /**
-         * 是否正在漫游
-         */
+        /**是否正在漫游 */
         get playing(): boolean;
-        /**
-         * 设置漫游速度
-         */
+        /** 漫游速度 */
         set speed(v: number);
-        /**
-         * 获取漫游速度
-         */
         get speed(): number;
-        /**
-         * 设置漫游循环方式
-         */
+        /** 漫游循环方式 */
         set loop(v: PathRoamLoopType);
-        /**
-         * 获取漫游循环方式
-         */
         get loop(): PathRoamLoopType;
-        /**
-         * 设置漫游时相机跟随
-         */
+        /** 漫游时相机跟随 */
         set follow(v: boolean);
-        /**
-         * 跟随漫游时相机跟随
-         */
         get follow(): boolean;
-        /**
-         * 相机跟随时锁定视图
-         */
+        /** 相机跟随时锁定视图 */
         set lockview(v: boolean);
-        /**
-         * 锁定视图
-         */
         get lockview(): boolean;
-        /**
-         * 相机跟随时使用第一人称视角
-         */
+        /** 相机跟随时使用第一人称视角 */
         set firstview(v: boolean);
-        /**
-         * 相机跟随时使用第一人称视角
-         */
         get firstview(): boolean;
-        /**
-         * 模型始终向前
-         */
+        /** 模型始终向前 */
         set modelForward(v: boolean);
-        /**
-         * 模型始终向前
-         */
         get modelForward(): boolean;
-        /**
-         * 显示漫游路径
-         */
+        /** 显示漫游路径 */
         set showline(v: boolean);
-        /**
-         * 显示漫游路径
-         */
         get showline(): boolean;
-        /**
-         * 线宽
-         */
+        /** 漫游路径线宽 */
         set lineWidth(v: number);
         get lineWidth(): number;
-        /**
-         * 线颜色
-         */
+        /** 漫游路径线颜色 */
         set lineColor(v: string);
         get lineColor(): string;
+        /** 漫游总时间，秒数 */
+        get totalTime(): number;
+        /** 当前时间，秒数 */
+        get currentTime(): number;
+        set currentTime(v: number);
+        /** 当前位置 */
+        get currentPosition(): Point;
+        /** 当前为路径段 */
+        get currentSegment(): number;
         /**
          * 释放资源
          */
@@ -11337,7 +11319,11 @@ declare namespace CZMAP {
         /**
          * 解析构建路径数据
          */
-        buildRoamPath(data: PathRomaData, speed?: number): PathNode[];
+        protected buildRoamPath(data: PathRomaData, speed?: number): PathNode[];
+        /** 子类初始化漫游对象 */
+        protected abstract _init(options: PathRoamOptions): void;
+        /** 子类释放漫游资源 */
+        protected abstract _release(): void;
         /**
          * 创建路径点
          * @param pt 输入参数
@@ -11681,20 +11667,6 @@ declare namespace CZMAP {
         /**
          */
         private view3d;
-        /** 路径节点列表 */
-        private _nodes;
-        /** 自定义视角偏移 */
-        private _eye_offset;
-        /** 路径的开始时刻（秒） */
-        private _begin_seconds;
-        /** 路径的接受时刻（秒） */
-        private _end_seconds;
-        /** 路径时长（秒） */
-        private _total_seconds;
-        /** 路径漫游的当前时刻（秒） */
-        private _current_seconds;
-        /** 当前位置 */
-        private _current_position;
         /** 上一帧时间 */
         private _last_time;
         private _temp_pos;
@@ -11725,29 +11697,15 @@ declare namespace CZMAP {
         constructor(view: MapView3D);
         /**
          * 创建漫游路径
-         * @param {*} path
          */
-        open(path: PathRomaData, options: PathRoamOptions): void;
+        protected _init(options: PathRoamOptions): void;
         /**
          * 关闭路径漫游
          */
-        close(): void;
-        /**
-         * 漫游总时间
-         */
-        get totalTime(): number;
-        /**
-         * 当前时间
-         */
-        get currentTime(): number;
-        /**
-         * 当前时间
-         */
+        protected _release(): void;
+        /** 当前时间 */
         set currentTime(v: number);
-        /** 当前为路径段 */
-        get currentSegment(): number;
-        /**  */
-        get currentPosition(): Point;
+        get currentTime(): number;
         /**
          *
          * @param {*} scene
@@ -11938,11 +11896,9 @@ declare namespace CZMAP {
     /** @internal */
     export class PathRoamUE extends PathRoam {
         private _uvroam;
-        /** 路径节点列表 */
-        private _nodes;
         constructor(view: MapView);
-        open(path: PathRomaData, option: PathRoamOptions): void;
-        close(): void;
+        protected _init(option: PathRoamOptions): void;
+        protected _release(): void;
         /**
          * 开始漫游
          */
@@ -11963,10 +11919,8 @@ declare namespace CZMAP {
          * 后退
          */
         backward(): void;
-        get totalTime(): number;
-        get currentTime(): number;
         set currentTime(v: number);
-        get currentPosition(): Point;
+        get currentTime(): number;
         /**
          * 设置漫游时的偏移
          */
@@ -11974,6 +11928,7 @@ declare namespace CZMAP {
         protected _execute(data: any): void;
         protected _createPathNode(pt: PathDataPointLike): PathNode;
         protected _calcDistance(a: PathNodeUE, b: PathNodeUE): number;
+        notify_pathroam(info: NotifyRtcPathRoam): void;
     }
     export {};
 }
@@ -12150,6 +12105,7 @@ declare namespace CZMAP {
     function fetchJSON5(input: RequestInfo, init?: RequestInit): Promise<any>;
 }
 declare namespace CZMAP {
+    function projectPoint(p0: Point, p1: Point, t: Point, isGeographical?: boolean): Point;
     /**
      * 在线段上均匀布设
      * @param p0 起点
@@ -12537,9 +12493,15 @@ declare namespace CZMAP {
         /** 拖拽（单点）*/
         onDragging?: (dx: number, dy: number, e0: PointerEvent, e1: PointerEvent) => void;
         /** 缩放（两点） */
-        onScale?: (d0: number, d1: number, e0: PointerEvent, e1: PointerEvent) => void;
+        onScale?: (d0: number, d1: number, ct: {
+            x: number;
+            y: number;
+        }, e0: PointerEvent, e1: PointerEvent) => void;
         /** 旋转（两点） */
-        onRotate?: (r0: number, r1: number, e0: PointerEvent, e1: PointerEvent) => void;
+        onRotate?: (r0: number, r1: number, ct: {
+            x: number;
+            y: number;
+        }, e0: PointerEvent, e1: PointerEvent) => void;
         /** 倾斜（三点） */
         onTilting?: (dx: number, dy: number, e0: PointerEvent, e1: PointerEvent) => void;
         onBeginDragging?: () => void;
@@ -12671,6 +12633,20 @@ declare namespace CZMAP {
          * @param str
          */
         static isNotEmpty(str: string): boolean;
+    }
+}
+declare namespace CZMAP {
+    class TunnelUtils {
+        /**
+         * 定位管环
+         * @param pts 隧道中心线坐标
+         * @param num 隧道管环数
+         * @param index 需要定位的管环号，从0开始
+         */
+        static calcPosition(pts: Point[], num: number, index: number): {
+            position: Point;
+            pose: Point;
+        };
     }
 }
 declare namespace CZMAP {
