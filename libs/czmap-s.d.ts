@@ -5078,6 +5078,8 @@ declare namespace CZMAP {
     /** 版本比较 */
     function compVersion(v1: string, v2: string): number;
     function tryCatchCall<T extends (...args: any) => any>(func: T, args: Parameters<T>): ReturnType<T>;
+    function forEachSegment<T>(items: T[], callback: (t0: T, t1: T, i0: number, i1: number) => void): void;
+    function mapEachSegment<T, U>(items: T[], callback: (t0: T, t1: T, i0: number, i1: number) => U): U[];
 }
 declare namespace CZMAP {
     /**
@@ -8772,21 +8774,26 @@ declare namespace CZMAP {
     }
 }
 declare namespace CZMAP {
+    interface TDTilesLayerUEOptions extends TDTilesLayerOptions {
+        material?: any;
+    }
     /** @internal */
-    class TDTilesLayerUE extends TDTilesLayer {
+    export class TDTilesLayerUE extends TDTilesLayer {
         private _options;
         private _uvlayer;
-        constructor(parent: Folder, options: TDTilesLayerOptions);
+        constructor(parent: Folder, options: TDTilesLayerUEOptions);
         get ready(): Promise<void>;
         get boundBox(): BoundingBox;
         get uvapi(): UnrealViewerAPI;
         flyTo(option?: FlyToOption): void;
+        setMaterial(material: any): void;
         protected _onVisible(v: boolean): void;
         protected _createInner(): void;
         protected _destroyInner(): void;
         protected _handleColorOpacity(): void;
         protected _onTransformChange(): void;
     }
+    export {};
 }
 declare namespace CZMAP {
     /** @internal */
@@ -9653,6 +9660,7 @@ declare namespace CZMAP {
         position?: Point;
         rotate?: Point;
         scale?: Point;
+        material?: any;
     }
     /** 点图层定义 */
     export interface PointRtcLayerDefine extends RtcLayerDefine<'point'> {
@@ -9709,7 +9717,7 @@ declare namespace CZMAP {
         'wrapped': WrappedRtcLayerDefine;
     }
     interface PickResponse {
-        result: RtcMouseEventInfo;
+        result?: RtcMouseEventInfo;
     }
     /** 图层信息通知 */
     export interface NotifyRtcLayerInfo {
@@ -9763,6 +9771,7 @@ declare namespace CZMAP {
         private _uviewer;
         private _nextSEQ;
         private _nextOverlay;
+        private _zoomFact;
         /** 当前视图信息 */
         private _viewInfo;
         /** 异步执行等待结果的命令列表 */
@@ -9932,7 +9941,10 @@ declare namespace CZMAP {
         singleServer?: string;
         /** 信号服务器地址 */
         signalServer: string;
+        /** 交互模式 */
         inputMode?: "ASDW" | "Globe";
+        /** 自动连接 */
+        autoConnect?: boolean;
         suppressBrowserKeys?: boolean;
         fakeMouseWithTouches?: boolean;
     }
@@ -12105,7 +12117,24 @@ declare namespace CZMAP {
     function fetchJSON5(input: RequestInfo, init?: RequestInit): Promise<any>;
 }
 declare namespace CZMAP {
+    /**
+     * 计算点在线段（延长线）上的投影
+     * @param p0 线段端点1
+     * @param p1 线段端点2
+     * @param t 要投影的点
+     * @param isGeographical 是否经纬度数据
+     * @returns 投影后的点
+     */
     function projectPoint(p0: Point, p1: Point, t: Point, isGeographical?: boolean): Point;
+    /**
+     * 使用两个点截断折线
+     * @param pts 折线
+     * @param p0 点1
+     * @param p1 点2
+     * @param isGeographical 是否经纬数据
+     * @returns 截断后的线段
+     */
+    function cutLinesByTwoPoints(pts: Point[], p0: Point, p1: Point, isGeographical?: boolean): Point[];
     /**
      * 在线段上均匀布设
      * @param p0 起点
@@ -12115,6 +12144,14 @@ declare namespace CZMAP {
      * @returns 布设点坐标列表
      */
     function putOnLine(p0: CZMAP.Point, p1: CZMAP.Point, dist: number, isGeographical?: boolean): Point[];
+    /**
+     * 在这线上均匀不舍点位
+     * @param pts 输入折线
+     * @param dist 不舍间距
+     * @param isGeographical 是否经纬度数据
+     * @returns 布设点坐标列表
+     */
+    function putOnLines(pts: Point[], dist: number, isGeographical?: boolean): Point[];
     /**
      * 计算指定坐标附近指定偏移坐标
      * @param pt 目标点
@@ -12158,7 +12195,16 @@ declare namespace CZMAP {
      */
     function calcLineOffsetPoint2(p0: Point, p1: Point, dist: number, heading: number, pitch: number, isGeographical?: boolean): Point;
     /**
-     * 将地址模型坐标系下的数据变换为经纬度
+     * 计算偏移后的线条
+     * @param pts 线条坐标
+     * @param ox 横向偏移
+     * @param oy 纵向偏移
+     * @param isGeographical 是否经纬度坐标
+     * @returns 偏移后的坐标
+     */
+    function calcLineOffset(pts: Point[], ox: number, oy: number, isGeographical?: boolean): Point[];
+    /**
+     * 将地质模型坐标系下的数据变换为经纬度
      * @param modelLayer 模型图层
      * @param pts 坐标列表
      * @param srcSrs 源坐标系（模型坐标系）
@@ -12485,25 +12531,39 @@ declare namespace CZMAP {
     export {};
 }
 declare namespace CZMAP {
+    interface MoultiEventArgs {
+        e0: PointerEvent;
+        e1: PointerEvent;
+    }
+    interface DraggingArgs extends MoultiEventArgs {
+        x: number;
+        y: number;
+        dx: number;
+        dy: number;
+    }
+    interface RotateScaleArgs extends MoultiEventArgs {
+        d0: number;
+        d1: number;
+        r0: number;
+        r1: number;
+        ct: {
+            x: number;
+            y: number;
+        };
+    }
     interface MultiPointInputOption {
         /** 点击事件 */
         onClick?: (e: PointerEvent) => void;
         /** 鼠标移动事件 */
         onMouseMove?: (e: PointerEvent) => void;
         /** 拖拽（单点）*/
-        onDragging?: (dx: number, dy: number, e0: PointerEvent, e1: PointerEvent) => void;
-        /** 缩放（两点） */
-        onScale?: (d0: number, d1: number, ct: {
-            x: number;
-            y: number;
-        }, e0: PointerEvent, e1: PointerEvent) => void;
-        /** 旋转（两点） */
-        onRotate?: (r0: number, r1: number, ct: {
-            x: number;
-            y: number;
-        }, e0: PointerEvent, e1: PointerEvent) => void;
+        onDragging?: (args: DraggingArgs) => void;
+        /** 旋转，缩放（两点） */
+        onRotateScale?: (args: RotateScaleArgs) => void;
         /** 倾斜（三点） */
-        onTilting?: (dx: number, dy: number, e0: PointerEvent, e1: PointerEvent) => void;
+        onTilting?: (args: DraggingArgs) => void;
+        onBeginAction?: () => void;
+        onEndAction?: () => void;
         onBeginDragging?: () => void;
         onEndDragging?: () => void;
         onBeginScaleRotate?: () => void;

@@ -63,9 +63,14 @@ class DemoApp extends EventTarget
     private _initView(center:CZMAP.Point, signal:string)
     {
         const option = { 
+            // 场景中心点
             center, 
+            // 信号服务器地址
             signalServer: signal,
-            inputMode: 'Globe'
+            // 交互模式，
+            inputMode: 'Globe',
+            // 自动连接（自动点击开始按钮）
+            autoConnect: true,
         };
 
         /// 初始化地图
